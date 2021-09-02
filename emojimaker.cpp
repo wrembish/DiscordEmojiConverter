@@ -2,94 +2,85 @@
 #include <fstream>
 #include <vector>
 #include <map>
+#include <sstream>
 using namespace std;
 
-// creates a map from the character (the key) to a vector of possible emoji strings
-// from the text file containing the data
+
+// creates the character to vector of string map from the text file containing that data
 map<char, vector<string>> get_conversion_map() {
-	// the empty map we are going to fill in
 	map<char, vector<string>> output_map;
 	
-	// input file stream to get the text from the input file
+	// reads all the text from the text file and makes it a string
 	ifstream ifs("letter_to_emoji.txt");
+	stringstream buffer;
+	buffer << ifs.rdbuf();
+	string line = buffer.str();
 	
-	// converts the ifstream to a string
-	string line;
-    line.assign((istreambuf_iterator<char>(ifs)), (istreambuf_iterator<char>()));
-	
-	// declare a variable to hold the key, the emoji conversion, 
-	// whether or not the next character is a key, and a vector to hold the emoji strings
 	char key;
-	string convert = "";
-	bool isKey = true;
+	string emoji = "";
+	bool isKey = true; // make it true if the next character is the start of a new line, false otherwise
 	vector<string> values;
 	
-	// loop through the string we made from the input file
-	for(int i = 0; i < line.length(); i++) {
+	// iterate through the string to get all the keys and values for the map
+	for(int i = 0; i < line.size(); i++) {
 		
-		// if this character is a key
-		if(isKey) {
-			// set key to the character
-			key = line[i];
-			// stop this if statement from being true for now
+		if(isKey) { // gets the key and sets isKey to false
+			key = line.at(i);
 			isKey = false;
-		} else if(line[i] == '=') {
-			// if the character is a '=' ignore it
-		} else if(line[i] == '\n') { // if the character is an endline character
-			//add the last emoji string to the vector
-			values.push_back(convert);
-			// reset the emoji string for the next iteration
-			convert = "";
-			// add the key we grabbed earlier and the vector of emoji strings to the map
-			output_map.insert(pair<char,vector<string>>(key,values));
-			// clear the emoji string vector
+		} else if(line.at(i) == '=' || line.at(i) == '\r') {
+			// ignores the '=' character which is only in the input file to make it more human readable
+			// also ignores the '\r' character which causes weird errors if you don't ignore it
+		} else if(line.at(i) == '\n') { // on new line character add the key value pair to the map and reset everything
+			values.push_back(emoji);
+			output_map.emplace(key,values);
+			
+			emoji.clear();
 			values.clear();
-			// the next character WILL be a key
 			isKey = true;
-		} else if(line[i] == ' ') { // if the character is a space
-			// make sure the emoji string isn't blank or a space for some reason
-			if(convert != "" && convert != " ") {
-				// then add it to the emoji string vector
-				values.push_back(convert);
+		} else if(line.at(i) == ' ') { // space means new emoji text so add what you got to the vector and reset
+			if(emoji != "" && emoji != " ") { // make sure no empty strings or just spaces are added
+				values.push_back(emoji);
 			}
-			// reset the emoji string regardless
-			convert = "";
-		} else { // otherwise you add the character to the emoji string
-			convert += line[i];
+			emoji.clear();
+		} else { // if none of the above are true, its just a character to add to the emoji string
+			emoji += line.at(i);
 		}
 
 	}
-	// add the last key values pair that doesn't already get added to the map
-	values.push_back(convert);
-	output_map.insert(pair<char,vector<string>>(key,values));
 	
-	// return the value
+	// make sure you grab the last key value pair and add it to the map
+	values.push_back(emoji);
+	output_map.emplace(key,values);
+	
 	return output_map;
 };
 
-// actually convers a input string to a bunch of emojis
+// converts any input string to discord emoji's for each character
 string convert_to_emoji(string input) {
-	// make a random seed for random based on the time
+	// seed random using the current time
 	srand(time(NULL));
-	// make a blank string to hold the emoji converted string
 	string output = "";
-	// get the conversion map
+	
 	map<char,vector<string>> conversionMap = get_conversion_map();
-	// iterate through each character of the input string
+	// loop through the string converting each character
 	for(int i = 0; i < input.size(); i++) {
-		// add a randomly generated selection from the current characters mapped
-		// emoji strings and a space after it
-		output += conversionMap[toupper(input[i])][rand()%conversionMap[toupper(input[i])].size()] + " ";
+		// if there are multiple words, on space just add space otherwise go through continuing to convert each character
+		if(input.at(i) == ' ') {
+			output += " ";
+		} else {
+			// add a bit of randomness if there are multiple emojis to represent the letter
+			int randoInt = rand()%conversionMap[toupper(input.at(i))].size();
+			output += conversionMap[toupper(input.at(i))][randoInt] + " ";
+		}
 	}
 	
-	//return the new string
 	return output;
 };
 
 int main() {
 	cout << "enter the word to convert: ";
 	string toConvert, converted;
-	std::cin >> toConvert;
+	getline(cin, toConvert);
 	converted = convert_to_emoji(toConvert);
 	cout << converted << endl;
 };
